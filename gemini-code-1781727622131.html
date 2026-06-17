@@ -1,0 +1,933 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard — Viabilidade Lavateria (Revisado)</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  :root {
+    --verde: #007A33;
+    --azul: #003DA5;
+    --verde-light: #e8f5ee;
+    --azul-light: #e6eef9;
+    --text: #1a1a1a;
+    --text-muted: #555;
+    --border: #ddd;
+    --card-bg: #fff;
+    --page-bg: #f5f6f8;
+    --kpi-verde-bg: #007A33;
+    --kpi-azul-bg: #003DA5;
+    --kpi-alt-bg: #1a5276;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; background: var(--page-bg); color: var(--text); font-size: 14px; }
+
+  .topbar {
+    background: var(--verde);
+    color: #fff;
+    padding: 0 24px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .topbar-left { font-size: 12px; opacity: 0.9; }
+  .topbar-title { font-size: 15px; font-weight: 700; letter-spacing: 0.3px; }
+  .topbar-right { font-size: 12px; opacity: 0.9; }
+
+  .sub-bar {
+    background: var(--azul);
+    color: #fff;
+    padding: 0 24px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    font-size: 12px;
+  }
+  .sub-bar span { opacity: 0.75; }
+  .sub-bar .pipe { opacity: 0.3; }
+
+  .wrapper { max-width: 1200px; margin: 0 auto; padding: 20px 20px 40px; }
+
+  .section-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--azul);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-bottom: 12px;
+    padding-bottom: 6px;
+    border-bottom: 2px solid var(--azul);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 30px;
+  }
+
+  /* Seletor de Cenários */
+  .scenario-bar {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+  .scenario-bar label { font-size: 13px; font-weight: 600; color: var(--azul); white-space: nowrap; }
+  .scenario-btn {
+    padding: 7px 20px;
+    border-radius: 20px;
+    border: 2px solid var(--border);
+    background: #fff;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-muted);
+    transition: all 0.2s;
+  }
+  .scenario-btn:hover { border-color: var(--verde); color: var(--verde); }
+  .scenario-btn.active-pessimista { background: #c0392b; color: #fff; border-color: #c0392b; }
+  .scenario-btn.active-moderado { background: var(--verde); color: #fff; border-color: var(--verde); }
+  .scenario-btn.active-otimista { background: var(--azul); color: #fff; border-color: var(--azul); }
+  .scenario-desc { font-size: 12px; color: var(--text-muted); margin-left: auto; }
+
+  /* KPI cards */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  .kpi-card {
+    border-radius: 10px;
+    padding: 14px 16px;
+    color: #fff;
+    position: relative;
+    overflow: hidden;
+  }
+  .kpi-card.verde { background: var(--kpi-verde-bg); }
+  .kpi-card.azul { background: var(--kpi-azul-bg); }
+  .kpi-card.teal { background: #0d6e6e; }
+  .kpi-card.slate { background: #34495e; }
+  .kpi-card.orange { background: #d35400; }
+  .kpi-card.purple { background: #6c3483; }
+  .kpi-card.dark-green { background: #1e8449; }
+  .kpi-card.navy { background: #1a237e; }
+  .kpi-label { font-size: 11px; opacity: 0.8; margin-bottom: 4px; }
+  .kpi-value { font-size: 21px; font-weight: 700; line-height: 1.1; }
+  .kpi-sub { font-size: 11px; opacity: 0.7; margin-top: 3px; }
+  .kpi-badge {
+    position: absolute;
+    top: 10px; right: 10px;
+    font-size: 10px;
+    background: rgba(255,255,255,0.2);
+    padding: 2px 7px;
+    border-radius: 10px;
+  }
+  .kpi-badge.ok { background: rgba(255,255,255,0.25); }
+
+  /* Layout Gráficos */
+  .charts-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+  @media (max-width: 700px) { .charts-row { grid-template-columns: 1fr; } }
+
+  .chart-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+  }
+  .chart-card h3 {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--azul);
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    margin-bottom: 12px;
+  }
+
+  /* Sensibilidade */
+  .sens-wrapper {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 20px;
+    overflow-x: auto;
+  }
+  .sens-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    min-width: 600px;
+  }
+  .sens-table th {
+    background: var(--azul);
+    color: #fff;
+    padding: 7px 10px;
+    text-align: center;
+    font-weight: 600;
+    font-size: 11px;
+  }
+  .sens-table td {
+    padding: 6px 10px;
+    text-align: center;
+    border-bottom: 1px solid #f0f0f0;
+    font-size: 12px;
+  }
+  .sens-table tr:first-child td { font-weight: 700; background: #f8f9fa; }
+  .heat-vhigh { background: #1e8449; color: #fff; }
+  .heat-high { background: #27ae60; color: #fff; }
+  .heat-mid { background: #82e0aa; color: #1a5276; }
+  .heat-low { background: #fdebd0; color: #784212; }
+  .heat-vlow { background: #fadbd8; color: #922b21; }
+  .heat-neg { background: #e74c3c; color: #fff; }
+
+  /* Opções Reais */
+  .opcoes-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+  @media (max-width: 700px) { .opcoes-grid { grid-template-columns: 1fr; } }
+
+  .opcao-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px;
+  }
+  .opcao-card h3 {
+    font-size: 13px;
+    font-weight: 700;
+    color: #fff;
+    padding: 8px 14px;
+    border-radius: 6px;
+    margin-bottom: 14px;
+  }
+  .opcao-call h3 { background: var(--verde); }
+  .opcao-put h3 { background: #c0392b; }
+
+  .param-table { width: 100%; font-size: 12px; margin-bottom: 12px; }
+  .param-table td { padding: 4px 0; }
+  .param-table td:first-child { color: var(--text-muted); width: 55%; }
+  .param-table td:last-child { font-weight: 600; text-align: right; }
+
+  .tree-label { font-size: 11px; color: var(--text-muted); margin-bottom: 8px; font-weight: 600; }
+  .tree-svg { width: 100%; overflow: visible; background: #fdfdfd; border: 1px solid #f0f0f0; border-radius: 6px; }
+
+  .result-highlight {
+    background: linear-gradient(135deg, #f8fff9, #e8f5ee);
+    border: 1px solid var(--verde);
+    border-radius: 8px;
+    padding: 10px 14px;
+    margin-top: 10px;
+  }
+  .result-highlight .rh-label { font-size: 11px; color: var(--text-muted); }
+  .result-highlight .rh-value { font-size: 20px; font-weight: 700; color: var(--verde); }
+  .result-highlight-red {
+    background: linear-gradient(135deg, #fff8f8, #fdeaea);
+    border: 1px solid #c0392b;
+    border-radius: 8px;
+    padding: 10px 14px;
+    margin-top: 10px;
+  }
+  .result-highlight-red .rh-label { font-size: 11px; color: var(--text-muted); }
+  .result-highlight-red .rh-value { font-size: 20px; font-weight: 700; color: #c0392b; }
+
+  /* Comparativo */
+  .comp-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+    margin-bottom: 20px;
+  }
+  @media (max-width: 600px) { .comp-grid { grid-template-columns: 1fr; } }
+  .comp-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    text-align: center;
+  }
+  .comp-card.featured { border: 2px solid var(--verde); }
+  .comp-label { font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.5px; margin-bottom: 8px; }
+  .comp-value { font-size: 24px; font-weight: 700; margin-bottom: 4px; }
+  .comp-delta { font-size: 12px; color: var(--text-muted); }
+  .badge-rec { display: inline-block; background: var(--verde); color: #fff; font-size: 10px; padding: 2px 8px; border-radius: 10px; margin-bottom: 6px; }
+
+  /* Simulador sliders */
+  .slider-panel {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px;
+    margin-bottom: 20px;
+  }
+  .slider-row {
+    display: grid;
+    grid-template-columns: 200px 1fr 80px;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+  .slider-row label { font-size: 12px; color: var(--text-muted); }
+  .slider-row input[type=range] { width: 100%; accent-color: var(--verde); }
+  .slider-row .val { font-size: 13px; font-weight: 700; color: var(--azul); text-align: right; }
+  .custom-result {
+    margin-top: 14px;
+    padding: 12px 16px;
+    background: var(--azul-light);
+    border-radius: 8px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 10px;
+  }
+  .cr-item { text-align: center; }
+  .cr-label { font-size: 11px; color: var(--text-muted); }
+  .cr-val { font-size: 18px; font-weight: 700; color: var(--azul); }
+
+  .footer {
+    background: var(--azul);
+    color: rgba(255,255,255,0.6);
+    text-align: center;
+    padding: 12px;
+    font-size: 11px;
+    margin-top: 30px;
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-left">Universidade de Brasília — UnB | Engenharia de Produção</div>
+  <div class="topbar-title">Dashboard de Viabilidade Financeira — Franquia Lavateria</div>
+  <div class="topbar-right">PSP3 · 1/2026 · Grupo 6</div>
+</div>
+<div class="sub-bar">
+  <span>Asa Norte, Brasília-DF</span>
+  <span class="pipe">|</span>
+  <span>Horizonte: 10 anos</span>
+  <span class="pipe">|</span>
+  <span>TMA: 15,5% a.a. (CAPM)</span>
+  <span class="pipe">|</span>
+  <span>Modelo Binomial CRR · Opção Real de Expansão e Abandono</span>
+</div>
+
+<div class="wrapper">
+
+  <div class="scenario-bar">
+    <label>📊 Cenário ativo:</label>
+    <button class="scenario-btn active-moderado" data-s="moderado" onclick="setScenario('moderado')">Moderado (Base)</button>
+    <button class="scenario-btn" data-s="pessimista" onclick="setScenario('pessimista')">Pessimista</button>
+    <button class="scenario-btn" data-s="otimista" onclick="setScenario('otimista')">Otimista</button>
+    <div class="scenario-desc" id="scenario-desc">Fat. R$25k/mês · g=5% a.a. · custos base</div>
+  </div>
+
+  <div class="kpi-grid" id="kpi-grid"></div>
+
+  <div class="charts-row">
+    <div class="chart-card">
+      <h3>FCL anual projetado (R$)</h3>
+      <div style="position:relative;height:220px;"><canvas id="chartFCL" role="img" aria-label="Fluxo de caixa livre anual projetado para 10 anos">FCL anual projetado.</canvas></div>
+    </div>
+    <div class="chart-card">
+      <h3>FCL descontado acumulado (R$)</h3>
+      <div style="position:relative;height:220px;"><canvas id="chartPayback" role="img" aria-label="Evolução do VPL acumulado ao longo dos 10 anos, mostrando payback descontado">VPL acumulado.</canvas></div>
+    </div>
+  </div>
+
+  <div class="charts-row">
+    <div class="chart-card">
+      <h3>Margem EBITDA por ano (%)</h3>
+      <div style="position:relative;height:200px;"><canvas id="chartEBITDA" role="img" aria-label="Margem EBITDA percentual por ano">Margem EBITDA.</canvas></div>
+    </div>
+    <div class="chart-card">
+      <h3>Cenários — VPL e TIR comparados</h3>
+      <div style="position:relative;height:200px;"><canvas id="chartCenarios" role="img" aria-label="Comparação de VPL entre cenários pessimista, moderado e otimista">Comparação de cenários.</canvas></div>
+    </div>
+  </div>
+
+  <div class="section-title">Análise de Sensibilidade — VPL × Receita × TMA</div>
+  <div class="sens-wrapper">
+    <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px;">Variação simultânea de receita (linhas) e TMA (colunas). VPL em R$ mil. Célula base marcada em negrito.</div>
+    <table class="sens-table" id="sensTable"></table>
+  </div>
+
+  <div class="section-title">Opções Reais — Modelo Binomial CRR (4 Nós Terminais)</div>
+  <div class="opcoes-grid">
+
+    <div class="opcao-card opcao-call">
+      <h3>📈 Opção de Expansão (CALL)</h3>
+      <table class="param-table">
+        <tr><td>Ativo-objeto S₀ (VPL Base)</td><td>R$ 626.700,22</td></tr>
+        <tr><td>Preço de exercício X (CAPEX 2ª un.)</td><td>R$ 178.000,00</td></tr>
+        <tr><td>Volatilidade σ</td><td>25,00% a.a.</td></tr>
+        <tr><td>Taxa livre de risco Rf</td><td>13,75% a.a.</td></tr>
+        <tr><td>Períodos T</td><td>3 anos</td></tr>
+        <tr><td>Fator alta u = e^σ</td><td>1,284025</td></tr>
+        <tr><td>Fator baixa d = 1/u</td><td>0,778801</td></tr>
+        <tr><td>Prob. neutra ao risco p</td><td>72,96%</td></tr>
+      </table>
+      <div class="tree-label">Árvore binomial de Payoffs — C = MAX(S − X; 0)</div>
+      <svg class="tree-svg" viewBox="0 0 340 220" style="height:220px;">
+        <line x1="40" y1="110" x2="120" y2="65" stroke="#007A33" stroke-width="1.5" opacity="0.6"/>
+        <line x1="40" y1="110" x2="120" y2="155" stroke="#007A33" stroke-width="1.5" opacity="0.4"/>
+        
+        <line x1="120" y1="65" x2="200" y2="35" stroke="#007A33" stroke-width="1.5" opacity="0.6"/>
+        <line x1="120" y1="65" x2="200" y2="95" stroke="#007A33" stroke-width="1.5" opacity="0.4"/>
+        <line x1="120" y1="155" x2="200" y2="95" stroke="#007A33" stroke-width="1.5" opacity="0.5"/>
+        <line x1="120" y1="155" x2="200" y2="175" stroke="#007A33" stroke-width="1.5" opacity="0.4"/>
+        
+        <line x1="200" y1="35" x2="280" y2="15" stroke="#1e8449" stroke-width="1.5" opacity="0.7"/>
+        <line x1="200" y1="35" x2="280" y2="65" stroke="#1e8449" stroke-width="1.5" opacity="0.4"/>
+        <line x1="200" y1="95" x2="280" y2="65" stroke="#1e8449" stroke-width="1.5" opacity="0.5"/>
+        <line x1="200" y1="95" x2="280" y2="135" stroke="#1e8449" stroke-width="1.5" opacity="0.4"/>
+        <line x1="200" y1="175" x2="280" y2="135" stroke="#1e8449" stroke-width="1.5" opacity="0.5"/>
+        <line x1="200" y1="175" x2="280" y2="195" stroke="#1e8449" stroke-width="1.5" opacity="0.4"/>
+
+        <circle cx="40" cy="110" r="16" fill="#003DA5"/>
+        <text x="40" y="106" text-anchor="middle" fill="#fff" font-size="7.5" font-weight="bold">C₀</text>
+        <text x="40" y="115" text-anchor="middle" fill="#fff" font-size="8" font-weight="bold">508.865</text>
+
+        <circle cx="120" cy="65" r="15" fill="#007A33"/>
+        <text x="120" y="61" text-anchor="middle" fill="#fff" font-size="7">Cu</text>
+        <text x="120" y="70" text-anchor="middle" fill="#fff" font-size="7.5" font-weight="bold">669.495</text>
+        
+        <circle cx="120" cy="155" r="15" fill="#64748b"/>
+        <text x="120" y="151" text-anchor="middle" fill="#fff" font-size="7">Cd</text>
+        <text x="120" y="160" text-anchor="middle" fill="#fff" font-size="7.5" font-weight="bold">352.871</text>
+
+        <circle cx="200" cy="35" r="15" fill="#27ae60"/>
+        <text x="200" y="31" text-anchor="middle" fill="#fff" font-size="6.5">Cuu</text>
+        <text x="200" y="40" text-anchor="middle" fill="#fff" font-size="7.5" font-weight="bold">878.121</text>
+        
+        <circle cx="200" cy="95" r="15" fill="#64748b"/>
+        <text x="200" y="91" text-anchor="middle" fill="#fff" font-size="6.5">Cud</text>
+        <text x="200" y="100" text-anchor="middle" fill="#fff" font-size="7.5" font-weight="bold">471.567</text>
+        
+        <circle cx="200" cy="175" r="15" fill="#64748b"/>
+        <text x="200" y="171" text-anchor="middle" fill="#fff" font-size="6.5">Cdd</text>
+        <text x="200" y="180" text-anchor="middle" fill="#fff" font-size="7.5" font-weight="bold">224.980</text>
+
+        <circle cx="280" cy="15" r="13" fill="#82e0aa"/>
+        <text x="280" y="19" text-anchor="middle" fill="#1a5276" font-size="6.5" font-weight="bold">1.148.724</text>
+        <text x="296" y="18" text-anchor="start" fill="#777" font-size="6">uuu</text>
+        
+        <circle cx="280" cy="65" r="13" fill="#82e0aa"/>
+        <text x="280" y="69" text-anchor="middle" fill="#1a5276" font-size="6.5" font-weight="bold">626.699</text>
+        <text x="296" y="68" text-anchor="start" fill="#777" font-size="6">uud</text>
+        
+        <circle cx="280" cy="135" r="13" fill="#82e0aa"/>
+        <text x="280" y="139" text-anchor="middle" fill="#1a5276" font-size="6.5" font-weight="bold">310.075</text>
+        <text x="296" y="138" text-anchor="start" fill="#777" font-size="6">udd</text>
+        
+        <circle cx="280" cy="195" r="13" fill="#82e0aa"/>
+        <text x="280" y="199" text-anchor="middle" fill="#1a5276" font-size="6.5" font-weight="bold">118.032</text>
+        <text x="296" y="198" text-anchor="start" fill="#777" font-size="6">ddd</text>
+
+        <text x="40" y="218" text-anchor="middle" fill="#888" font-size="8">t=0</text>
+        <text x="120" y="218" text-anchor="middle" fill="#888" font-size="8">t=1</text>
+        <text x="200" y="218" text-anchor="middle" fill="#888" font-size="8">t=2</text>
+        <text x="280" y="218" text-anchor="middle" fill="#888" font-size="8">t=3</text>
+      </svg>
+      <div class="result-highlight">
+        <div class="rh-label">Valor da Opção de Expansão (C₀)</div>
+        <div class="rh-value">R$ 508.865,44</div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:3px;">VPL Expandido = Base + C₀ = <strong style="color:var(--verde)">R$ 1.135.565,66</strong> (+81,2%)</div>
+      </div>
+    </div>
+
+    <div class="opcao-card opcao-put">
+      <h3>📉 Opção de Abandono — Venda (PUT)</h3>
+      <table class="param-table">
+        <tr><td>Ativo-objeto S₀ (VPL Base)</td><td>R$ 626.700,22</td></tr>
+        <tr><td>Preço de exercício X_venda</td><td>R$ 630.546,91</td></tr>
+        <tr><td>Múltiplo de EBITDA adotado</td><td>3,5× EBITDA médio</td></tr>
+        <tr><td>EBITDA médio anual</td><td>R$ 180.156,26</td></tr>
+        <tr><td>Volatilidade σ</td><td>25,00% a.a.</td></tr>
+        <tr><td>Períodos T</td><td>3 anos</td></tr>
+        <tr><td>Prob. neutra ao risco p</td><td>72,96%</td></tr>
+        <tr><td>Status da PUT</td><td>At-the-money estrutural</td></tr>
+      </table>
+      <div class="tree-label">Árvore binomial de Payoffs — P = MAX(X_venda − S; 0)</div>
+      <svg class="tree-svg" viewBox="0 0 340 220" style="height:220px;">
+        <line x1="40" y1="110" x2="120" y2="65" stroke="#c0392b" stroke-width="1.5" opacity="0.4"/>
+        <line x1="40" y1="110" x2="120" y2="155" stroke="#c0392b" stroke-width="1.5" opacity="0.7"/>
+        
+        <line x1="120" y1="65" x2="200" y2="35" stroke="#c0392b" stroke-width="1.5" opacity="0.3"/>
+        <line x1="120" y1="65" x2="200" y2="95" stroke="#c0392b" stroke-width="1.5" opacity="0.4"/>
+        <line x1="120" y1="155" x2="200" y2="95" stroke="#c0392b" stroke-width="1.5" opacity="0.5"/>
+        <line x1="120" y1="155" x2="200" y2="175" stroke="#c0392b" stroke-width="1.5" opacity="0.7"/>
+        
+        <line x1="200" y1="35" x2="280" y2="15" stroke="#e74c3c" stroke-width="1.5" opacity="0.2"/>
+        <line x1="200" y1="35" x2="280" y2="65" stroke="#e74c3c" stroke-width="1.5" opacity="0.2"/>
+        <line x1="200" y1="95" x2="280" y2="65" stroke="#e74c3c" stroke-width="1.5" opacity="0.3"/>
+        <line x1="200" y1="95" x2="280" y2="135" stroke="#e74c3c" stroke-width="1.5" opacity="0.5"/>
+        <line x1="200" y1="175" x2="280" y2="135" stroke="#e74c3c" stroke-width="1.5" opacity="0.5"/>
+        <line x1="200" y1="175" x2="280" y2="195" stroke="#e74c3c" stroke-width="1.5" opacity="0.8"/>
+
+        <circle cx="40" cy="110" r="16" fill="#5b21b6"/>
+        <text x="40" y="106" text-anchor="middle" fill="#fff" font-size="7.5" font-weight="bold">P₀</text>
+        <text x="40" y="115" text-anchor="middle" fill="#fff" font-size="8" font-weight="bold">19.475</text>
+
+        <circle cx="120" cy="65" r="15" fill="#64748b"/>
+        <text x="120" y="61" text-anchor="middle" fill="#fff" font-size="7">Pu</text>
+        <text x="120" y="70" text-anchor="middle" fill="#fff" font-size="7.5" font-weight="bold">7.914</text>
+        
+        <circle cx="120" cy="155" r="15" fill="#c0392b"/>
+        <text x="120" y="151" text-anchor="middle" fill="#fff" font-size="7">Pd</text>
+        <text x="120" y="160" text-anchor="middle" fill="#fff" font-size="7.5" font-weight="bold">61.282</text>
+
+        <circle cx="200" cy="35" r="15" fill="#e2e8f0"/>
+        <text x="200" y="39" text-anchor="middle" fill="#475569" font-size="7.5" font-weight="bold">0</text>
+        
+        <circle cx="200" cy="95" r="15" fill="#64748b"/>
+        <text x="200" y="91" text-anchor="middle" fill="#fff" font-size="6.5">Pud</text>
+        <text x="200" y="100" text-anchor="middle" fill="#fff" font-size="7.5" font-weight="bold">33.578</text>
+        
+        <circle cx="200" cy="175" r="15" fill="#c0392b"/>
+        <text x="200" y="171" text-anchor="middle" fill="#fff" font-size="6.5">Pdd</text>
+        <text x="200" y="180" text-anchor="middle" fill="#fff" font-size="7.5" font-weight="bold">169.430</text>
+
+        <circle cx="280" cy="15" r="13" fill="#f8fafc" stroke="#cbd5e1"/>
+        <text x="280" y="19" text-anchor="middle" fill="#94a3b8" font-size="7.5" font-weight="bold">0</text>
+        <text x="296" y="18" text-anchor="start" fill="#94a3b8" font-size="6">uuu</text>
+        
+        <circle cx="280" cy="65" r="13" fill="#f8fafc" stroke="#cbd5e1"/>
+        <text x="280" y="69" text-anchor="middle" fill="#94a3b8" font-size="7.5" font-weight="bold">0</text>
+        <text x="296" y="68" text-anchor="start" fill="#94a3b8" font-size="6">uud</text>
+        
+        <circle cx="280" cy="135" r="13" fill="#fadbd8"/>
+        <text x="280" y="139" text-anchor="middle" fill="#922b21" font-size="6.5" font-weight="bold">142.472</text>
+        <text x="296" y="138" text-anchor="start" fill="#777" font-size="6">udd</text>
+        
+        <circle cx="280" cy="195" r="13" fill="#f1948a"/>
+        <text x="280" y="199" text-anchor="middle" fill="#922b21" font-size="6.5" font-weight="bold">334.515</text>
+        <text x="296" y="198" text-anchor="start" fill="#777" font-size="6">ddd</text>
+
+        <text x="40" y="218" text-anchor="middle" fill="#888" font-size="8">t=0</text>
+        <text x="120" y="218" text-anchor="middle" fill="#888" font-size="8">t=1</text>
+        <text x="200" y="218" text-anchor="middle" fill="#888" font-size="8">t=2</text>
+        <text x="280" y="218" text-anchor="middle" fill="#888" font-size="8">t=3</text>
+      </svg>
+      <div class="result-highlight-red">
+        <div class="rh-label">Valor da Opção de Abandono (P₀)</div>
+        <div class="rh-value">R$ 19.475,13</div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:3px;">VPL c/ flexibilidade saída = Base + P₀ = <strong style="color:#c0392b">R$ 646.175,35</strong> (+3,1%)</div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="section-title">Comparativo Estratégico das 3 Alternativas</div>
+  <div class="comp-grid">
+    <div class="comp-card">
+      <div class="comp-label">Operar sem flexibilidade</div>
+      <div class="comp-value" style="color:var(--azul)">R$ 626.700,22</div>
+      <div class="comp-delta">VPL Base (DCF tradicional)</div>
+      <div style="font-size:11px;color:var(--text-muted);margin-top:6px;">TIR: 74,02% · Payback: 1,83 anos</div>
+    </div>
+    <div class="comp-card featured">
+      <div class="badge-rec">⭐ Recomendação do Grupo</div>
+      <div class="comp-label">Expandir — 2ª unidade (CALL)</div>
+      <div class="comp-value" style="color:var(--verde)">R$ 1.135.565,66</div>
+      <div class="comp-delta">VPL Expandido = Base + C₀</div>
+      <div style="font-size:11px;color:var(--verde);margin-top:6px;font-weight:700;">+81,2% vs. Base · C₀ = R$ 508.865,44</div>
+    </div>
+    <div class="comp-card">
+      <div class="comp-label">Vender / Abandonar (PUT)</div>
+      <div class="comp-value" style="color:#c0392b">R$ 646.175,35</div>
+      <div class="comp-delta">VPL c/ flexibilidade saída</div>
+      <div style="font-size:11px;color:var(--text-muted);margin-top:6px;">+3,1% vs. Base · P₀ = R$ 19.475,13</div>
+    </div>
+  </div>
+
+  <div class="section-title">Simulador Interativo de Premissas</div>
+  <div class="slider-panel">
+    <div style="font-size:12px;color:var(--text-muted);margin-bottom:14px;">Ajuste as premissas abaixo e veja o impacto nos indicadores em tempo real.</div>
+    <div class="slider-row">
+      <label>Faturamento mensal (R$)</label>
+      <input type="range" id="sl-fat" min="10000" max="45000" step="1000" value="25000" oninput="calcCustom()">
+      <span class="val" id="vl-fat">R$ 25.000</span>
+    </div>
+    <div class="slider-row">
+      <label>Crescimento anual (%)</label>
+      <input type="range" id="sl-g" min="0" max="15" step="0.5" value="5" oninput="calcCustom()">
+      <span class="val" id="vl-g">5,0%</span>
+    </div>
+    <div class="slider-row">
+      <label>TMA (%)</label>
+      <input type="range" id="sl-tma" min="8" max="30" step="0.5" value="15.5" oninput="calcCustom()">
+      <span class="val" id="vl-tma">15,5%</span>
+    </div>
+    <div class="slider-row">
+      <label>Fator de custos fixos</label>
+      <input type="range" id="sl-cf" min="0.7" max="1.4" step="0.05" value="1" oninput="calcCustom()">
+      <span class="val" id="vl-cf">1,00×</span>
+    </div>
+    <div class="custom-result" id="custom-result"></div>
+  </div>
+
+</div>
+
+<div class="footer">
+  Grupo 6 — Giovanna Rodrigues Santiago · Daniel de Carvalho Vianna · Julia Lopes de Oliveira · Rafael Shiniti Coelho Ferreira<br>
+  Disciplina: PSP3 — Tópicos Especiais em Engenharia Econômica · Prof. Dr. João Carlos Félix Souza · UnB 2026
+</div>
+
+<script>
+const SCENARIOS = {
+  moderado: {
+    label: 'Fat. R$25k/mês · g=5% a.a. · custos base',
+    fat: 25000, g: 0.05, cf: 1.0,
+    vpl: 626700, tir: 74.02, payback: 1.83, pbSimples: 1.50,
+    ebitdaMed: 180156, margemEbitda: 47.0, il: 3.52, moic: 10.23, roi: 923,
+    fcl: [-178000, 114420, 127170, 140558, 154614, 169374, 184872, 201144, 218231, 236171, 275059],
+    fclDescAcum: [-178000, -78935, 16393, 107617, 194497, 276899, 354771, 428126, 497033, 561597, 626700],
+    ebitdaAnual: [0, 114420, 127170, 140558, 154614, 169374, 184872, 201144, 218231, 236171, 257166],
+    ebitdaPerc: [0, 38.14, 40.37, 42.50, 44.52, 46.45, 48.28, 50.03, 51.70, 53.28, 54.79],
+  },
+  pessimista: {
+    label: 'Fat. R$18k/mês · g=2% a.a. · custos +10%',
+    fat: 18000, g: 0.02, cf: 1.1,
+    vpl: 32826, tir: 19.46, payback: 8.23, pbSimples: 4.90,
+    ebitdaMed: 46399, margemEbitda: 19.4, il: 0.18, moic: 1.72, roi: 72,
+    fcl: [-178000, 28962, 32634, 36379, 40200, 44027, 47862, 51711, 55579, 59468, 61240],
+    fclDescAcum: [-178000, -153059, -127950, -103070, -79244, -56406, -34492, -13442, 6751, 26110, 32826],
+    ebitdaAnual: [0, 28962, 32634, 36379, 40200, 44027, 47862, 51711, 55579, 59468, 61240],
+    ebitdaPerc: [0, 19.4, 20.0, 20.5, 21.0, 21.5, 22.0, 22.5, 23.0, 23.5, 24.0],
+  },
+  otimista: {
+    label: 'Fat. R$32k/mês · g=8% a.a. · custos -10%',
+    fat: 32000, g: 0.08, cf: 0.9,
+    vpl: 1331822, tir: 124.75, payback: 1.03, pbSimples: 0.89,
+    ebitdaMed: 346319, margemEbitda: 61.1, il: 7.48, moic: 18.57, roi: 1857,
+    fcl: [-178000, 199878, 225990, 254191, 284648, 317432, 352686, 390570, 431253, 474935, 521395],
+    fclDescAcum: [-178000, -4942, 161453, 316034, 455843, 580892, 691978, 789717, 875505, 950473, 1017640],
+    ebitdaAnual: [0, 199878, 225990, 254191, 284648, 317432, 352686, 390570, 431253, 474935, 521395],
+    ebitdaPerc: [0, 61.1, 62.5, 63.9, 65.2, 66.4, 67.5, 68.6, 69.6, 70.5, 71.4],
+  }
+};
+
+const SENS = {
+  rows: ['-30%','-20%','-10%','0%','+10%','+20%','+30%'],
+  cols: ['-30%','-20%','-10%','0%','+10%','+20%','+30%'],
+  data: [
+    [273033,238145,206964,179025,153925,131321,110914],
+    [455465,408343,366142,328250,294138,263352,235501],
+    [637896,578541,525321,477475,434351,395384,360087],
+    [820327,748738,684499,626700,574563,527415,484674],
+    [1002758,918936,843677,775925,714776,659446,609260],
+    [1185189,1089134,1002855,925151,854989,791478,733847],
+    [1367620,1259332,1162033,1074376,995201,923509,858433],
+  ]
+};
+
+let currentScenario = 'moderado';
+let chartFCL, chartPayback, chartEBITDA, chartCenarios;
+
+function fmt(n) {
+  if (Math.abs(n) >= 1000000) return 'R$ ' + (n/1000000).toFixed(2).replace('.',',') + 'M';
+  if (Math.abs(n) >= 1000) return 'R$ ' + Math.round(n/1000) + 'k';
+  return 'R$ ' + Math.round(n).toLocaleString('pt-BR');
+}
+function fmtFull(n) {
+  return 'R$ ' + Math.round(n).toLocaleString('pt-BR');
+}
+
+function setScenario(s) {
+  currentScenario = s;
+  document.querySelectorAll('.scenario-btn').forEach(b => {
+    b.className = 'scenario-btn';
+    if (b.dataset.s === s) b.classList.add('active-' + s);
+  });
+  document.getElementById('scenario-desc').textContent = SCENARIOS[s].label;
+  renderKPIs(s);
+  updateCharts(s);
+}
+
+function renderKPIs(s) {
+  const d = SCENARIOS[s];
+  document.getElementById('kpi-grid').innerHTML = `
+    <div class="kpi-card verde">
+      <div class="kpi-badge ok">✓ APROVADO</div>
+      <div class="kpi-label">VPL (TMA ${d.tma || '15,5%'})</div>
+      <div class="kpi-value">${fmtFull(d.vpl)}</div>
+      <div class="kpi-sub">VPL > 0 → agrega valor estratégico</div>
+    </div>
+    <div class="kpi-card azul">
+      <div class="kpi-badge ok">✓ TIR > TMA</div>
+      <div class="kpi-label">TIR</div>
+      <div class="kpi-value">${d.tir.toFixed(2).replace('.',',')}% a.a.</div>
+      <div class="kpi-sub">Spread vs TMA: +${(d.tir - 15.5).toFixed(1).replace('.',',')} p.p.</div>
+    </div>
+    <div class="kpi-card teal">
+      <div class="kpi-label">Payback Descontado</div>
+      <div class="kpi-value">${d.payback.toFixed(2).replace('.',',')} anos</div>
+      <div class="kpi-sub">Simples: ${d.pbSimples.toFixed(2).replace('.',',')} anos</div>
+    </div>
+    <div class="kpi-card slate">
+      <div class="kpi-label">EBITDA Médio Anual</div>
+      <div class="kpi-value">${fmtFull(d.ebitdaMed)}</div>
+      <div class="kpi-sub">Margem média: ${d.margemEbitda.toFixed(1).replace('.',',')}%</div>
+    </div>
+    <div class="kpi-card orange">
+      <div class="kpi-label">ROI Nominal (10 anos)</div>
+      <div class="kpi-value">${d.roi}%</div>
+      <div class="kpi-sub">MOIC: ${d.moic.toFixed(2).replace('.',',')}×</div>
+    </div>
+    <div class="kpi-card purple">
+      <div class="kpi-label">Índice de Lucratividade</div>
+      <div class="kpi-value">${d.il.toFixed(2).replace('.',',')}×</div>
+      <div class="kpi-sub">Cada R$1 investido gera R$${d.il.toFixed(2).replace('.',',')} de VPL</div>
+    </div>
+    <div class="kpi-card dark-green">
+      <div class="kpi-label">VPL Expandido (+ Call)</div>
+      <div class="kpi-value">R$ 1.135.566</div>
+      <div class="kpi-sub">C₀ = R$508.865 (+81,2%)</div>
+    </div>
+    <div class="kpi-card navy">
+      <div class="kpi-label">Margem de Segurança</div>
+      <div class="kpi-value">44,87%</div>
+      <div class="kpi-sub">PE mensal: R$ 13.782 (345 ciclos)</div>
+    </div>
+  `;
+}
+
+function updateCharts(s) {
+  const d = SCENARIOS[s];
+  const anos = ['Ano 0','Ano 1','Ano 2','Ano 3','Ano 4','Ano 5','Ano 6','Ano 7','Ano 8','Ano 9','Ano 10'];
+  const color = s === 'pessimista' ? '#c0392b' : (s === 'otimista' ? '#003DA5' : '#007A33');
+
+  if (chartFCL) chartFCL.destroy();
+  chartFCL = new Chart(document.getElementById('chartFCL'), {
+    type: 'bar',
+    data: {
+      labels: anos,
+      datasets: [{
+        label: 'FCL (R$)',
+        data: d.fcl,
+        backgroundColor: d.fcl.map(v => v < 0 ? '#e74c3c' : color),
+        borderRadius: 4,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { ticks: { callback: v => 'R$'+Math.round(v/1000)+'k', font: { size: 10 } }, grid: { color: '#f0f0f0' } },
+        x: { ticks: { font: { size: 10 } } }
+      }
+    }
+  });
+
+  if (chartPayback) chartPayback.destroy();
+  chartPayback = new Chart(document.getElementById('chartPayback'), {
+    type: 'line',
+    data: {
+      labels: anos,
+      datasets: [{
+        label: 'FCL Desc. Acumulado',
+        data: d.fclDescAcum,
+        borderColor: color,
+        backgroundColor: color + '22',
+        fill: true,
+        tension: 0.3,
+        borderWidth: 2,
+        pointRadius: 4,
+        pointBackgroundColor: d.fclDescAcum.map(v => v < 0 ? '#e74c3c' : color),
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { ticks: { callback: v => 'R$'+Math.round(v/1000)+'k', font: { size: 10 } }, grid: { color: '#f0f0f0' } },
+        x: { ticks: { font: { size: 10 } } }
+      }
+    }
+  });
+
+  if (chartEBITDA) chartEBITDA.destroy();
+  chartEBITDA = new Chart(document.getElementById('chartEBITDA'), {
+    type: 'line',
+    data: {
+      labels: ['Ano 1','Ano 2','Ano 3','Ano 4','Ano 5','Ano 6','Ano 7','Ano 8','Ano 9','Ano 10'],
+      datasets: [{
+        label: 'Margem EBITDA (%)',
+        data: d.ebitdaPerc.slice(1),
+        borderColor: '#1e8449',
+        backgroundColor: '#82e0aa55',
+        fill: true,
+        tension: 0.4,
+        borderWidth: 2,
+        pointRadius: 3,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { min: 0, max: 80, ticks: { callback: v => v+'%', font: { size: 10 } }, grid: { color: '#f0f0f0' } },
+        x: { ticks: { font: { size: 10 } } }
+      }
+    }
+  });
+
+  if (chartCenarios) chartCenarios.destroy();
+  chartCenarios = new Chart(document.getElementById('chartCenarios'), {
+    type: 'bar',
+    data: {
+      labels: ['Pessimista','Moderado','Otimista'],
+      datasets: [
+        {
+          label: 'VPL (R$)',
+          data: [32826, 626700, 1331822],
+          backgroundColor: ['#c0392b','#007A33','#003DA5'],
+          borderRadius: 5,
+          yAxisID: 'y',
+        },
+        {
+          label: 'TIR (%)',
+          data: [19.46, 74.02, 124.75],
+          type: 'line',
+          borderColor: '#f39c12',
+          backgroundColor: '#f39c1222',
+          borderWidth: 2,
+          pointRadius: 5,
+          pointBackgroundColor: '#f39c12',
+          yAxisID: 'y2',
+        }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { ticks: { callback: v => 'R$'+Math.round(v/1000)+'k', font: { size: 10 } }, grid: { color: '#f0f0f0' } },
+        y2: { position: 'right', ticks: { callback: v => v+'%', font: { size: 10 } }, grid: { display: false } },
+        x: { ticks: { font: { size: 10 } } }
+      }
+    }
+  });
+}
+
+function buildSensTable() {
+  const baseRow = 3, baseCol = 3;
+  let html = '<thead><tr><th>Rec ↓ / TMA →</th>';
+  SENS.cols.forEach(c => html += `<th>TMA ${c}</th>`);
+  html += '</tr></thead><tbody>';
+  SENS.data.forEach((row, ri) => {
+    html += `<tr>`;
+    html += `<td style="font-weight:700;background:#f8f9fa;">${SENS.rows[ri]}</td>`;
+    row.forEach((v, ci) => {
+      let cls = '';
+      if (v >= 900000) cls = 'heat-vhigh';
+      else if (v >= 600000) cls = 'heat-high';
+      else if (v >= 300000) cls = 'heat-mid';
+      else if (v >= 100000) cls = 'heat-low';
+      else if (v >= 0) cls = 'heat-vlow';
+      else cls = 'heat-neg';
+      const isBase = (ri === baseRow && ci === baseCol);
+      const bold = isBase ? 'font-weight:800;outline:2px solid #003DA5;' : '';
+      html += `<td class="${cls}" style="${bold}">${Math.round(v/1000).toLocaleString('pt-BR')}k</td>`;
+    });
+    html += '</tr>';
+  });
+  html += '</tbody>';
+  document.getElementById('sensTable').innerHTML = html;
+}
+
+function calcCustom() {
+  const fat = parseFloat(document.getElementById('sl-fat').value);
+  const g = parseFloat(document.getElementById('sl-g').value) / 100;
+  const tma = parseFloat(document.getElementById('sl-tma').value) / 100;
+  const cf = parseFloat(document.getElementById('sl-cf').value);
+
+  document.getElementById('vl-fat').textContent = 'R$ ' + fat.toLocaleString('pt-BR');
+  document.getElementById('vl-g').textContent = (g*100).toFixed(1).replace('.',',') + '%';
+  document.getElementById('vl-tma').textContent = (tma*100).toFixed(1).replace('.',',') + '%';
+  document.getElementById('vl-cf').textContent = cf.toFixed(2).replace('.',',') + '×';
+
+  const custoFixoBase = 140580;
+  const custoVar = 0.09, simples = 0.06;
+  const dep = [14400,14400,14400,14400,14400,12000,12000,12000,12000,12000];
+
+  let fcls = [-178000];
+  for (let t = 1; t <= 10; t++) {
+    const rec = fat * 12 * Math.pow(1 + g, t - 1);
+    const recLiq = rec * (1 - simples);
+    const cv = rec * custoVar;
+    const fixo = custoFixoBase * cf;
+    const ebitda = recLiq - cv - fixo;
+    const lajir = ebitda - dep[t-1];
+    const fcl = lajir + dep[t-1];
+    fcls.push(fcl);
+  }
+  fcls[10] += 20050;
+
+  let vpl = -178000;
+  for (let t = 1; t <= 10; t++) vpl += fcls[t] / Math.pow(1 + tma, t);
+
+  let pbS = 0, acumS = -178000;
+  for (let t = 1; t <= 10; t++) {
+    const prev = acumS;
+    acumS += fcls[t];
+    if (acumS >= 0 && prev < 0) { pbS = t - 1 + Math.abs(prev)/fcls[t]; break; }
+  }
+
+  let pbD = 0, acumD = -178000;
+  for (let t = 1; t <= 10; t++) {
+    const prev = acumD;
+    const fd = fcls[t] / Math.pow(1 + tma, t);
+    acumD += fd;
+    if (acumD >= 0 && prev < 0) { pbD = t - 1 + Math.abs(prev)/fd; break; }
+  }
+
+  function npvFn(r) {
+    let s = -178000;
+    for (let t = 1; t <= 10; t++) s += fcls[t]/Math.pow(1+r,t);
+    return s;
+  }
+  let lo = 0, hi = 5, tir = 0;
+  for (let i = 0; i < 50; i++) {
+    tir = (lo+hi)/2;
+    npvFn(tir) > 0 ? lo = tir : hi = tir;
+  }
+
+  const ebitdaMed = fcls.slice(1).reduce((s,v) => s+v, 0) / 10;
+  const il = vpl / 178000;
+
+  const vplColor = vpl > 0 ? 'var(--verde)' : '#c0392b';
+  const tirColor = tir*100 > 15.5 ? 'var(--verde)' : '#c0392b';
+  document.getElementById('custom-result').innerHTML = `
+    <div class="cr-item"><div class="cr-label">VPL</div><div class="cr-val" style="color:${vplColor}">R$ ${Math.round(vpl).toLocaleString('pt-BR')}</div></div>
+    <div class="cr-item"><div class="cr-label">TIR</div><div class="cr-val" style="color:${tirColor}">${(tir*100).toFixed(2).replace('.',',')}%</div></div>
+    <div class="cr-item"><div class="cr-label">Payback Desc.</div><div class="cr-val">${pbD > 0 ? pbD.toFixed(2).replace('.',',') + ' anos' : '> 10 anos'}</div></div>
+    <div class="cr-item"><div class="cr-label">Payback Simples</div><div class="cr-val">${pbS > 0 ? pbS.toFixed(2).replace('.',',') + ' anos' : '> 10 anos'}</div></div>
+    <div class="cr-item"><div class="cr-label">Índice de Lucrat.</div><div class="cr-val">${il.toFixed(2).replace('.',',')}×</div></div>
+    <div class="cr-item"><div class="cr-label">EBITDA Médio</div><div class="cr-val">R$ ${Math.round(ebitdaMed).toLocaleString('pt-BR')}</div></div>
+    <div class="cr-item"><div class="cr-label">Status</div><div class="cr-val" style="font-size:13px;color:${vpl>0?'var(--verde)':'#c0392b'}">${vpl>0?'✓ VIÁVEL':'✗ INVIÁVEL'}</div></div>
+  `;
+}
+
+setScenario('moderado');
+buildSensTable();
+calcCustom();
+</script>
+</body>
+</html>
